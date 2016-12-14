@@ -1,9 +1,6 @@
-# encoding: utf-8
-
 require_relative "test_helper"
 
-class TestMatch < Minitest::Test
-
+class MatchTest < Minitest::Test
   # exact
 
   def test_match
@@ -37,7 +34,9 @@ class TestMatch < Minitest::Test
   end
 
   def test_percent
-    store_names ["1% Milk", "2% Milk", "Whole Milk"]
+    # Note: "2% Milk" doesn't get matched in ES below 5.1.1
+    # This could be a bug since it has an edit distance of 1
+    store_names ["1% Milk", "Whole Milk"]
     assert_search "1%", ["1% Milk"]
   end
 
@@ -112,6 +111,35 @@ class TestMatch < Minitest::Test
     assert_search "zip lock", ["Ziploc"]
   end
 
+  def test_misspelling_zucchini_transposition
+    skip if elasticsearch_below14?
+    store_names ["zucchini"]
+    assert_search "zuccihni", ["zucchini"]
+    assert_search "zuccihni", [], misspellings: {transpositions: false}
+  end
+
+  def test_misspelling_lasagna
+    skip if elasticsearch_below14?
+    store_names ["lasagna"]
+    assert_search "lasanga", ["lasagna"], misspellings: {transpositions: true}
+    assert_search "lasgana", ["lasagna"], misspellings: {transpositions: true}
+    assert_search "lasaang", [], misspellings: {transpositions: true} # triple transposition, shouldn't work
+    assert_search "lsagana", [], misspellings: {transpositions: true} # triple transposition, shouldn't work
+  end
+
+  def test_misspelling_lasagna_pasta
+    skip if elasticsearch_below14?
+    store_names ["lasagna pasta"]
+    assert_search "lasanga", ["lasagna pasta"], misspellings: {transpositions: true}
+    assert_search "lasanga pasta", ["lasagna pasta"], misspellings: {transpositions: true}
+    assert_search "lasanga pasat", ["lasagna pasta"], misspellings: {transpositions: true} # both words misspelled with a transposition should still work
+  end
+
+  def test_misspellings_word_start
+    store_names ["Sriracha"]
+    assert_search "siracha", ["Sriracha"], fields: [{name: :word_start}]
+  end
+
   # spaces
 
   def test_spaces_in_field
@@ -153,4 +181,54 @@ class TestMatch < Minitest::Test
     assert_search "to be", ["to be or not to be"]
   end
 
+  def test_apostrophe
+    store_names ["Ben and Jerry's"]
+    assert_search "ben and jerrys", ["Ben and Jerry's"]
+  end
+
+  def test_apostrophe_search
+    store_names ["Ben and Jerrys"]
+    assert_search "ben and jerry's", ["Ben and Jerrys"]
+  end
+
+  def test_ampersand_index
+    store_names ["Ben & Jerry's"]
+    assert_search "ben and jerrys", ["Ben & Jerry's"]
+  end
+
+  def test_ampersand_search
+    store_names ["Ben and Jerry's"]
+    assert_search "ben & jerrys", ["Ben and Jerry's"]
+  end
+
+  def test_phrase
+    store_names ["Fresh Honey", "Honey Fresh"]
+    assert_search "fresh honey", ["Fresh Honey"], match: :phrase
+  end
+
+  def test_unsearchable
+    store [
+      {name: "Unsearchable", description: "Almond"}
+    ]
+    assert_search "almond", []
+  end
+
+  def test_unsearchable_where
+    store [
+      {name: "Unsearchable", description: "Almond"}
+    ]
+    assert_search "*", ["Unsearchable"], where: {description: "Almond"}
+  end
+
+  def test_emoji
+    skip unless defined?(EmojiParser)
+    store_names ["Banana"]
+    assert_search "🍌", ["Banana"], emoji: true
+  end
+
+  def test_emoji_multiple
+    skip unless defined?(EmojiParser)
+    store_names ["Ice Cream Cake"]
+    assert_search "🍨🍰", ["Ice Cream Cake"], emoji: true
+  end
 end

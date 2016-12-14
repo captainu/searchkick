@@ -1,7 +1,6 @@
 require_relative "test_helper"
 
-class TestAutocomplete < Minitest::Test
-
+class AutocompleteTest < Minitest::Test
   def test_autocomplete
     store_names ["Hummus"]
     assert_search "hum", ["Hummus"], autocomplete: true
@@ -57,11 +56,20 @@ class TestAutocomplete < Minitest::Test
     assert_search "dark grey", ["Dark Grey"], fields: [{name: :word_start}]
   end
 
+  def test_word_start_exact
+    store_names ["Back Scratcher", "Backpack"]
+    assert_order "back", ["Back Scratcher", "Backpack"], fields: [{name: :word_start}]
+  end
+
+  def test_word_start_exact_martin
+    store_names ["Martina", "Martin"]
+    assert_order "martin", ["Martin", "Martina"], fields: [{name: :word_start}]
+  end
+
   # TODO find a better place
 
   def test_exact
     store_names ["hi@example.org"]
     assert_search "hi@example.org", ["hi@example.org"], fields: [{name: :exact}]
   end
-
 end
