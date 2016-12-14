@@ -32,7 +32,14 @@ module Searchkick
           # sort
           hits.map do |hit|
             if options[:primary_key]
-              results[hit["_type"]].find{|r| r.send(options[:primary_key]).to_s == hit["_id"].to_s }
+              found = results[hit["_type"]].find do |_i,r|
+                r.send(options[:primary_key]).to_s == hit["_id"].to_s
+              end
+              # calling find on a hash returns an array
+              # { x: 1 }.find { |k,v| v == 1 }
+              # => [:x, 1]
+              # we only care about the value here
+              found[1] unless found.nil?
             else
               results[hit["_type"]][hit["_id"].to_s]
             end
