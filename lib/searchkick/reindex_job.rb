@@ -1,6 +1,5 @@
 module Searchkick
   class ReindexJob
-
     def initialize(klass, id)
       @klass = klass
       @id = id
@@ -10,7 +9,7 @@ module Searchkick
       model = @klass.constantize
       record = model.find(@id) rescue nil # TODO fix lazy coding
       index = model.searchkick_index
-      if !record or !record.should_index?
+      if !record || !record.should_index?
         # hacky
         record ||= model.new
         record.id = @id
@@ -23,6 +22,5 @@ module Searchkick
         index.store record
       end
     end
-
   end
 end
